@@ -9,21 +9,34 @@ import {
     Layout,
     Image,
     Stack,
-    Spinner
+    Spinner,
+    InlineError
 } from "@shopify/polaris";
-import {useCallback, useState, useEffect} from 'react';
+import {useCallback, useState, useEffect, useRef} from 'react';
 import {TitleBar} from "@shopify/app-bridge-react";
 import {ameriabank} from "../assets";
 import {useAuthenticatedFetch} from '../hooks'
 
 export default function HomePage() {
+    //! Refs
+    const defaultErrorMessagesObj = useRef({
+        clientId: '',
+        username: '',
+        password: '',
+        globalErrorMessage: ''
+    })
+
+    //! States
     const [clientId, setClientId] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(false);
+    const [errorMessages, setErrorMessages] = useState(defaultErrorMessagesObj.current)
 
+    //! Auth Fetch Hook
     const authFetch = useAuthenticatedFetch()
 
+    //! Getting current values
     const getCurrentValues = useCallback(() => {
         authFetch('/api/credentials').then((response) => response.json()).then(({clientId, username, password}) => {
             setClientId(clientId)
@@ -32,21 +45,41 @@ export default function HomePage() {
         })
     }, [])
 
+    //! Document did mount
     useEffect(() => {
         getCurrentValues()
     }, [])
 
+    //! Handle submit
     const handleSubmit = useCallback(async (_event) => {
+        setErrorMessages(defaultErrorMessagesObj.current)
         setLoading(true)
+
         await authFetch('/api/credentials', {
             method: 'POST',
             headers: {'Content-type': 'application/json'},
             body: JSON.stringify({clientId, username, password})
-        }).finally(() => {
-            setLoading(false)
+        }).then(res => {
+            return res.json()
         })
+            .then(data => {
+                let msgs
+
+                if (data.errors) {
+                    msgs = data.errors
+                }
+                if (data.message && !data.errors) {
+                    msgs = {...msgs, globalErrorMessage: data.message}
+                }
+
+                msgs && setErrorMessages(msgs)
+            })
+            .finally(() => {
+                setLoading(false)
+            })
     }, [clientId, username, password]);
 
+    //! Handle form item change
     const handleChange = useCallback((name, val) => {
         eval(`set${name}(val)`)
     }, []);
@@ -83,11 +116,23 @@ export default function HomePage() {
                             alignment="center"
                         >
                             <Stack.Item fill>
+
+                                {errorMessages.globalErrorMessage && (
+                                    <div style={{
+                                        padding: '2em',
+                                        border: '1px solid var(--p-text-critical)',
+                                        borderRadius: '0.25rem',
+                                        marginBottom: '3em'
+                                    }}>
+                                        <InlineError message={errorMessages.globalErrorMessage}/>
+                                    </div>
+                                )}
+
                                 <Form onSubmit={handleSubmit}>
                                     <FormLayout>
-                                        <TextField onChange={(val) => handleChange('ClientId', val)} label="Client ID" type="text" value={clientId}/>
-                                        <TextField onChange={(val) => handleChange('Username', val)} label="Username" type="text" value={username}/>
-                                        <TextField onChange={(val) => handleChange('Password', val)} label="Password" type="password" value={password}/>
+                                        <TextField error={errorMessages.clientId} onChange={(val) => handleChange('ClientId', val)} label="Client ID" type="text" value={clientId}/>
+                                        <TextField error={errorMessages.username} onChange={(val) => handleChange('Username', val)} label="Username" type="text" value={username}/>
+                                        <TextField error={errorMessages.password} onChange={(val) => handleChange('Password', val)} label="Password" type="password" value={password}/>
 
                                         {loading ? <Spinner size="large"/> : <Button submit>Save</Button>}
                                     </FormLayout>
