@@ -14,6 +14,7 @@ import {
 import {useCallback, useState, useEffect} from 'react';
 import {TitleBar} from "@shopify/app-bridge-react";
 import {ameriabank} from "../assets";
+import {useAuthenticatedFetch} from '../hooks'
 
 export default function HomePage() {
     const [clientId, setClientId] = useState('');
@@ -21,9 +22,11 @@ export default function HomePage() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false)
 
+    const authFetch = useAuthenticatedFetch()
+
     const getCurrentValues = useCallback(() => {
-        fetch('/api/credentials').then((response) => response.json()).then(({client_id, username, password}) => {
-            setClientId(client_id)
+        authFetch('/api/credentials').then((response) => response.json()).then(({clientId, username, password}) => {
+            setClientId(clientId)
             setUsername(username)
             setPassword(password)
         })
@@ -35,8 +38,9 @@ export default function HomePage() {
 
     const handleSubmit = useCallback(async (_event) => {
         setLoading(true)
-        await fetch('/api/credentials', {
+        await authFetch('/api/credentials', {
             method: 'POST',
+            headers: {'Content-type': 'application/json'},
             body: JSON.stringify({clientId, username, password})
         }).finally(() => {
             setLoading(false)

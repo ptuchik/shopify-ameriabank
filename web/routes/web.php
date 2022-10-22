@@ -141,5 +141,5 @@ Route::post('/api/webhooks', function (Request $request) {
     }
 });
 
-Route::get('/api/credentials', 'App\Http\Controllers\Controller@getCredentials');
-Route::post('/api/credentials', 'App\Http\Controllers\Controller@setCredentials');
+Route::get('/api/credentials', 'App\Http\Controllers\Controller@getCredentials')->middleware('shopify.auth');
+Route::post('/api/credentials', 'App\Http\Controllers\Controller@setCredentials')->middleware('shopify.auth');
